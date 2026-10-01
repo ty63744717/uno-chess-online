@@ -231,8 +231,8 @@ function showRevivalPicker(){
  const list=dead[currentPlayer];if(revivalState.remaining<=0){endTurn();return}
  if(window.__onlineMyColor && window.__onlineMyColor!==currentPlayer) return;
  const counts={};list.forEach(p=>counts[p.type]=(counts[p.type]||0)+1);
- const html=Object.keys(counts).map(type=>`<button class="choice" onclick="chooseRevival('${type}')">${pieceNames[type]} <span class="count">×${counts[type]}</span></button>`).join("");
- openModal(`<h2>부활 선택 (${revivalState.remaining}개 남음)</h2><p>부활할 기물을 하나 고른 뒤 자신의 앞쪽 첫째 또는 둘째 줄의 빈 칸을 클릭하세요.</p><div class="choice-grid">${html||"<p>선택할 기물이 없습니다.</p>"}</div><div class="modal-actions"><button onclick="cancelRevival()">부활 종료</button><button onclick="peekBoard()">보드 보기</button></div>`)
+ const html=Object.keys(counts).map(type=>`<button class="choice" onclick="window.__onlineChooseRevival('${type}')">${pieceNames[type]} <span class="count">×${counts[type]}</span></button>`).join("");
+ openModal(`<h2>부활 선택 (${revivalState.remaining}개 남음)</h2><p>부활할 기물을 하나 고른 뒤 자신의 앞쪽 첫째 또는 둘째 줄의 빈 칸을 클릭하세요.</p><div class="choice-grid">${html||"<p>선택할 기물이 없습니다.</p>"}</div><div class="modal-actions"><button onclick="window.__onlineCancelRevival()">부활 종료</button><button onclick="peekBoard()">보드 보기</button></div>`)
 }
 function chooseRevival(type){
  if(window.__onlineMyColor && window.__onlineMyColor!==currentPlayer)return;
@@ -424,16 +424,19 @@ restartGame();
       return;
     }
     if(m.type==="command" && myRole==="host"){
-      if(!started || gameOver || currentPlayer!==(reverseMode?"w":"b")) return;
+      // 참가자 명령은 방장이 대신 실행한다. 따라서 방장 색이 아니라
+      // 현재 참가자 색(리버스 시 백/흑이 뒤바뀜)을 기준으로 검증한다.
+      const guestColor=reverseMode ? "w" : "b";
+      if(!started || gameOver || currentPlayer!==guestColor) return;
       const allowed=["square","draw","end","promotion","revival","cancelRevival","wild4"];
       if(!allowed.includes(m.action)) return;
       const validSquare=Number.isInteger(m.r)&&Number.isInteger(m.c)&&m.r>=0&&m.r<8&&m.c>=0&&m.c<8;
       let valid=false;
-      if(m.action==="square") valid=validSquare && !pendingChoice?.type?.startsWith("promotion") && pendingChoice?.type!=="revival" && pendingChoice?.type!=="wild4Choice" && (cardDrawn||pendingChoice?.type==="wildPawn") && (!pendingChoice || pendingChoice.type!=="wildPawn" || (board[m.r]?.[m.c]?.color===(reverseMode?"w":"b") && board[m.r][m.c]?.type==="P"));
+      if(m.action==="square") valid=validSquare && !pendingChoice?.type?.startsWith("promotion") && pendingChoice?.type!=="revival" && pendingChoice?.type!=="wild4Choice" && (cardDrawn||pendingChoice?.type==="wildPawn") && (!pendingChoice || pendingChoice.type!=="wildPawn" || (board[m.r]?.[m.c]?.color===guestColor && board[m.r][m.c]?.type==="P"));
       else if(m.action==="draw") valid=!cardDrawn&&!revivalState&&!pendingChoice;
       else if(m.action==="end") valid=!pendingChoice&&!revivalState;
-      else if(m.action==="promotion") valid=pendingChoice?.type==="promotion" && validSquare && ["Q","R","B","N"].includes(m.piece) && board[m.r]?.[m.c]?.color===(reverseMode?"w":"b") && board[m.r]?.[m.c]?.type==="P";
-      else if(m.action==="revival") valid=pendingChoice?.type==="revival" && revivalState && ["P","N","B","R","Q"].includes(m.piece) && dead[reverseMode?"w":"b"]?.some(p=>p.type===m.piece);
+      else if(m.action==="promotion") valid=pendingChoice?.type==="promotion" && validSquare && ["Q","R","B","N"].includes(m.piece) && board[m.r]?.[m.c]?.color===guestColor && board[m.r]?.[m.c]?.type==="P";
+      else if(m.action==="revival") valid=pendingChoice?.type==="revival" && revivalState && ["P","N","B","R","Q"].includes(m.piece) && dead[guestColor]?.some(p=>p.type===m.piece);
       else if(m.action==="cancelRevival") valid=!!revivalState&&pendingChoice?.type==="revival";
       else if(m.action==="wild4") valid=pendingChoice?.type==="wild4Choice" && (m.choice==="revival"||m.choice==="wild");
       if(!valid) return;
@@ -565,11 +568,14 @@ restartGame();
     if(myRole==="guest") send("command",{action:"revival",piece});
     else realChooseRevival(piece);
   };
+  window.__onlineChooseRevival=window.chooseRevival;
+  // 부활 종료 버튼도 반드시 네트워크 래퍼를 거치게 한다.
   window.cancelRevival=()=>{
     if(!canAct()) return;
     if(myRole==="guest") send("command",{action:"cancelRevival"});
     else realCancelRevival();
   };
+  window.__onlineCancelRevival=window.cancelRevival;
   window.chooseWild4=(choice)=>{
     if(!canAct()) return;
     if(myRole==="guest") send("command",{action:"wild4",choice});
