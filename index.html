@@ -226,8 +226,10 @@ function startRevival(count){
  revivalState={remaining:count,chosenType:null};cardDrawn=false;pendingChoice={type:"revival"};showRevivalPicker()
 }
 function showRevivalPicker(){
- if(window.__onlineMyColor && window.__onlineMyColor!==currentPlayer) return;
+ if(!revivalState)return;
+ pendingChoice={type:"revival"};
  const list=dead[currentPlayer];if(revivalState.remaining<=0){endTurn();return}
+ if(window.__onlineMyColor && window.__onlineMyColor!==currentPlayer) return;
  const counts={};list.forEach(p=>counts[p.type]=(counts[p.type]||0)+1);
  const html=Object.keys(counts).map(type=>`<button class="choice" onclick="chooseRevival('${type}')">${pieceNames[type]} <span class="count">×${counts[type]}</span></button>`).join("");
  openModal(`<h2>부활 선택 (${revivalState.remaining}개 남음)</h2><p>부활할 기물을 하나 고른 뒤 자신의 앞쪽 첫째 또는 둘째 줄의 빈 칸을 클릭하세요.</p><div class="choice-grid">${html||"<p>선택할 기물이 없습니다.</p>"}</div><div class="modal-actions"><button onclick="cancelRevival()">부활 종료</button><button onclick="peekBoard()">보드 보기</button></div>`)
@@ -252,8 +254,8 @@ function showCardOwner(card,owner){const el=document.getElementById("card");el.c
 function applyCard(card){showCardOwner(card,lastCardOwner);if(card.type==="number"){movesRemaining=card.value;movesUsedThisCard=0;log("숫자 "+card.value+": "+card.value+"번 이동 가능");if(!movesRemaining)endTurn();return}if(card.type==="skip"){log("SKIP: 차례 스킵");endTurn();return}if(card.type==="reverse"){reverseBoard();return}if(card.type==="draw2"){startRevival(2);return}if(card.type==="wild4"){showWild4Picker();return}if(card.type==="wild"){openWild()}}
 function reverseBoard(){const nb=Array.from({length:8},()=>Array(8).fill(null));for(let r=0;r<8;r++)for(let c=0;c<8;c++)nb[7-r][7-c]=board[r][c];board=nb;reverseMode=!reverseMode;lastMove=null;log("REVERSE: 체스판 회전 / 폰 진행 방향 전환");endTurn()}
 function showWild4Picker(){
- if(window.__onlineMyColor && window.__onlineMyColor!==currentPlayer) return;
  cardDrawn=false;pendingChoice={type:"wild4Choice"};
+ if(window.__onlineMyColor && window.__onlineMyColor!==currentPlayer) return;
  openModal(`<h2>WILD +4</h2><p>원하는 효과를 선택하세요.</p><div class="choice-grid"><button class="choice" onclick="chooseWild4('revival')">4부활</button><button class="choice" onclick="chooseWild4('wild')">WILD 카드</button></div><div class="modal-actions"><button onclick="peekBoard()">보드 보기</button></div>`);
 }
 function openWild(){
@@ -422,16 +424,16 @@ restartGame();
       return;
     }
     if(m.type==="command" && myRole==="host"){
-      if(!started || gameOver || currentPlayer!=="b") return;
+      if(!started || gameOver || currentPlayer!==(reverseMode?"w":"b")) return;
       const allowed=["square","draw","end","promotion","revival","cancelRevival","wild4"];
       if(!allowed.includes(m.action)) return;
       const validSquare=Number.isInteger(m.r)&&Number.isInteger(m.c)&&m.r>=0&&m.r<8&&m.c>=0&&m.c<8;
       let valid=false;
-      if(m.action==="square") valid=validSquare && !pendingChoice?.type?.startsWith("promotion") && pendingChoice?.type!=="revival" && pendingChoice?.type!=="wild4Choice" && (cardDrawn||pendingChoice?.type==="wildPawn");
+      if(m.action==="square") valid=validSquare && !pendingChoice?.type?.startsWith("promotion") && pendingChoice?.type!=="revival" && pendingChoice?.type!=="wild4Choice" && (cardDrawn||pendingChoice?.type==="wildPawn") && (!pendingChoice || pendingChoice.type!=="wildPawn" || (board[m.r]?.[m.c]?.color===(reverseMode?"w":"b") && board[m.r][m.c]?.type==="P"));
       else if(m.action==="draw") valid=!cardDrawn&&!revivalState&&!pendingChoice;
       else if(m.action==="end") valid=!pendingChoice&&!revivalState;
-      else if(m.action==="promotion") valid=pendingChoice?.type==="promotion" && validSquare && ["Q","R","B","N"].includes(m.piece) && board[m.r]?.[m.c]?.color==="b";
-      else if(m.action==="revival") valid=pendingChoice?.type==="revival" && revivalState && ["P","N","B","R","Q"].includes(m.piece) && dead.b.some(p=>p.type===m.piece);
+      else if(m.action==="promotion") valid=pendingChoice?.type==="promotion" && validSquare && ["Q","R","B","N"].includes(m.piece) && board[m.r]?.[m.c]?.color===(reverseMode?"w":"b") && board[m.r]?.[m.c]?.type==="P";
+      else if(m.action==="revival") valid=pendingChoice?.type==="revival" && revivalState && ["P","N","B","R","Q"].includes(m.piece) && dead[reverseMode?"w":"b"]?.some(p=>p.type===m.piece);
       else if(m.action==="cancelRevival") valid=!!revivalState&&pendingChoice?.type==="revival";
       else if(m.action==="wild4") valid=pendingChoice?.type==="wild4Choice" && (m.choice==="revival"||m.choice==="wild");
       if(!valid) return;

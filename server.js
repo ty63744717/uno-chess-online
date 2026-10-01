@@ -76,7 +76,7 @@ wss.on("connection",ws=>{
       const action=m.action;
       const square=Number.isInteger(m.r)&&Number.isInteger(m.c)&&m.r>=0&&m.r<8&&m.c>=0&&m.c<8;
       let valid=false;
-      if(action==="square") valid=square && (!s.pendingChoice || s.pendingChoice.type==="wildPawn") && (s.cardDrawn || s.pendingChoice?.type==="wildPawn") && (!s.pendingChoice || s.pendingChoice.type!=="wildPawn" || !!s.board?.[m.r]?.[m.c] && s.board[m.r][m.c].color==="b" && s.board[m.r][m.c].type==="P");
+      if(action==="square") valid=square && (!s.pendingChoice || s.pendingChoice.type==="wildPawn") && (s.cardDrawn || s.pendingChoice?.type==="wildPawn") && (!s.pendingChoice || s.pendingChoice.type!=="wildPawn" || !!s.board?.[m.r]?.[m.c] && s.board[m.r][m.c].color===guestColor && s.board[m.r][m.c].type==="P");
       else if(action==="draw") valid=!s.cardDrawn&&!s.revivalState&&!s.pendingChoice;
       else if(action==="end") valid=!s.pendingChoice&&!s.revivalState;
       else if(action==="promotion") valid=s.pendingChoice?.type==="promotion" && square && ["Q","R","B","N"].includes(m.piece) && s.board?.[m.r]?.[m.c]?.color===guestColor && s.board[m.r][m.c].type==="P";
